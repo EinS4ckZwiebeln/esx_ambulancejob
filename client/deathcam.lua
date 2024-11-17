@@ -1,21 +1,14 @@
-function GetShapeTestResultSync(shape)
-    local handle, hit, coords, normal, entity
-    repeat handle, hit, coords, normal, entity = GetShapeTestResult(shape)
-    until handle ~= 1 or Wait()
-    return hit, coords, normal, entity
-end
-  
 local camera
 local x = 0
 local y = 0
 local camera_radius = 5 
 local zoom = Config.zoom
-local playerPed
+local playerPed = PlayerPedId()
+local zombieSelf
   
 function StartDeathCam()
     camera = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', 0, 0, 0, 0, 0, 0, GetGameplayCamFov(), 1)
     RenderScriptCams(true, true, 1000, true, false)
-  
     playerPed = PlayerPedId()
 end
   
@@ -25,16 +18,22 @@ function EndDeathCam()
 end
   
 function ProcessCamControls()
-    local playerCoords = GetEntityCoords(playerPed)
+    zombieSelf = exports["zombie_infection"]:GetZombieSelf()
+    local playerCoords = zombieSelf > 0 and GetEntityCoords(zombieSelf) or GetEntityCoords(playerPed)
     if camera_radius < zoom.max and IsDisabledControlPressed(0, 14) then
       camera_radius += zoom.step
     elseif camera_radius > zoom.min and IsDisabledControlPressed(0, 15) then
       camera_radius -= zoom.step 
     end
-  
-    local coords = ProcessNewPosition(playerCoords) 
-    SetCamCoord(camera, coords)
+    SetCamCoord(camera, ProcessNewPosition(playerCoords))
     PointCamAtCoord(camera, playerCoords.x, playerCoords.y, playerCoords.z)
+end
+
+function GetShapeTestResultSync(shape)
+    local handle, hit, coords, normal, entity
+    repeat handle, hit, coords, normal, entity = GetShapeTestResult(shape)
+    until handle ~= 1 or Wait()
+    return hit, coords, normal, entity
 end
   
 function ProcessNewPosition(playerCoords)
@@ -51,6 +50,6 @@ function ProcessNewPosition(playerCoords)
         math.cos(y)
     )
     local pos = playerCoords + normal * camera_radius
-    local hit, coords = GetShapeTestResultSync(StartShapeTestLosProbe(playerCoords, pos, -1, playerPed))
+    local hit, coords = GetShapeTestResultSync(StartShapeTestLosProbe(playerCoords, pos, -1, zombieSelf > 0 and zombieSelf or playerPed))
     return (hit == 1 and playerCoords + normal * (#(playerCoords - coords) - 1)) or pos
 end 
